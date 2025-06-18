@@ -1,0 +1,695 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ProfanityCheck | Real-time Turkish Speech Filter</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 100%);
+            color: white;
+            overflow-x: hidden;
+        }
+
+        .censorship-bar {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #ff0000, #ff4444, #ff6666);
+            z-index: 1000;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% { opacity: 0.6; }
+            50% { opacity: 1; }
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* Navigation */
+        nav {
+            position: fixed;
+            top: 4px;
+            left: 0;
+            right: 0;
+            background: rgba(15, 15, 35, 0.95);
+            backdrop-filter: blur(10px);
+            z-index: 999;
+            padding: 15px 0;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        .logo {
+            font-size: 24px;
+            font-weight: bold;
+            background: linear-gradient(45deg, #ff0000, #ff6666);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-links a {
+            color: white;
+            text-decoration: none;
+            transition: color 0.3s;
+            cursor: pointer;
+        }
+
+        .nav-links a:hover {
+            color: #ff4444;
+        }
+
+        /* Landing Section */
+        .landing {
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            position: relative;
+            background: radial-gradient(circle at 50% 50%, rgba(255, 0, 0, 0.1) 0%, transparent 50%);
+            padding-top: 80px;
+        }
+
+        .landing-content {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 60px;
+            align-items: center;
+        }
+
+        .hero-text h1 {
+            font-size: 3.5rem;
+            margin-bottom: 20px;
+            background: linear-gradient(45deg, #ffffff, #ff4444);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            line-height: 1.2;
+        }
+
+        .hero-text .subtitle {
+            font-size: 1.3rem;
+            margin-bottom: 30px;
+            color: #cccccc;
+            line-height: 1.5;
+        }
+
+        .cta-button {
+            background: linear-gradient(45deg, #ff0000, #ff4444);
+            border: none;
+            padding: 15px 40px;
+            font-size: 1.1rem;
+            color: white;
+            border-radius: 30px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-right: 20px;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 30px rgba(255, 0, 0, 0.3);
+        }
+
+        .hero-visual {
+            position: relative;
+            text-align: center;
+        }
+
+        .censorship-demo {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+        }
+
+        .demo-text {
+            font-family: 'Courier New', monospace;
+            font-size: 1.2rem;
+            line-height: 1.8;
+            margin-bottom: 20px;
+        }
+
+        .censored {
+            background: #ff0000;
+            color: transparent;
+            padding: 2px 8px;
+            border-radius: 4px;
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            0%, 50% { opacity: 1; }
+            51%, 100% { opacity: 0.3; }
+        }
+
+        /* Section Styles */
+        .section {
+            padding: 100px 0;
+            border-top: 1px solid rgba(255, 68, 68, 0.1);
+        }
+
+        .section h2 {
+            font-size: 2.5rem;
+            text-align: center;
+            margin-bottom: 50px;
+            color: #ff4444;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 50px;
+        }
+
+        .feature-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 68, 68, 0.2);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .feature-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 68, 68, 0.5);
+        }
+
+        .feature-icon {
+            font-size: 3rem;
+            margin-bottom: 20px;
+            color: #ff4444;
+        }
+
+        .flowchart {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 50px 0;
+            flex-wrap: wrap;
+            gap: 20px;
+        }
+
+        .flow-step {
+            flex: 1;
+            min-width: 200px;
+            text-align: center;
+            position: relative;
+        }
+
+        .flow-step:not(:last-child)::after {
+            content: '→';
+            position: absolute;
+            right: -30px;
+            top: 50%;
+            transform: translateY(-50%);
+            font-size: 2rem;
+            color: #ff4444;
+        }
+
+        .flow-circle {
+            width: 80px;
+            height: 80px;
+            background: linear-gradient(45deg, #ff0000, #ff4444);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin: 0 auto 15px;
+            font-size: 1.5rem;
+            font-weight: bold;
+        }
+
+        .tech-stack {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+            margin-top: 50px;
+        }
+
+        .tech-item {
+            background: rgba(255, 255, 255, 0.05);
+            border-left: 4px solid #ff4444;
+            padding: 20px;
+            border-radius: 8px;
+        }
+
+        .demo-container {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 40px;
+            margin: 50px 0;
+            align-items: start;
+        }
+
+        .demo-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 68, 68, 0.3);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: center;
+            transition: transform 0.3s, border-color 0.3s;
+        }
+
+        .demo-card:hover {
+            transform: translateY(-5px);
+            border-color: rgba(255, 68, 68, 0.5);
+        }
+
+        .demo-icon {
+            font-size: 4rem;
+            margin-bottom: 20px;
+            color: #ff4444;
+        }
+
+        .demo-button {
+            background: linear-gradient(45deg, #ff0000, #ff4444);
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-top: 20px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .demo-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(255, 0, 0, 0.3);
+        }
+
+        .youtube-button {
+            background: linear-gradient(45deg, #ff0000, #cc0000);
+            border: none;
+            padding: 12px 30px;
+            font-size: 1.1rem;
+            color: white;
+            border-radius: 25px;
+            cursor: pointer;
+            transition: transform 0.3s, box-shadow 0.3s;
+            margin-top: 20px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .youtube-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(204, 0, 0, 0.3);
+        }
+
+        .team-section {
+            text-align: center;
+        }
+
+        .team-card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 68, 68, 0.2);
+            border-radius: 15px;
+            padding: 40px;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+
+        .contact-links {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .contact-links a {
+            color: #ff4444;
+            text-decoration: none;
+            font-size: 1.1rem;
+            transition: color 0.3s;
+        }
+
+        .contact-links a:hover {
+            color: white;
+        }
+
+        /* Responsive */
+        @media (max-width: 768px) {
+            .landing-content {
+                grid-template-columns: 1fr;
+                text-align: center;
+            }
+
+            .hero-text h1 {
+                font-size: 2.5rem;
+            }
+
+            .nav-links {
+                display: none;
+            }
+
+            .flow-step:not(:last-child)::after {
+                content: '↓';
+                right: 50%;
+                transform: translateX(50%);
+                top: 100%;
+            }
+
+            .demo-container {
+                grid-template-columns: 1fr;
+                gap: 30px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Censorship Bar -->
+    <div class="censorship-bar"></div>
+
+    <!-- Navigation -->
+    <nav>
+        <div class="nav-container">
+            <div class="logo">ProfanityCheck</div>
+            <div class="nav-links">
+                <a onclick="scrollToSection('home')">Home</a>
+                <a onclick="scrollToSection('about')">About</a>
+                <a onclick="scrollToSection('features')">Features</a>
+                <a onclick="scrollToSection('how-it-works')">How It Works</a>
+                <a onclick="scrollToSection('tech')">Technology</a>
+                <a onclick="scrollToSection('demo')">Demo</a>
+                <a onclick="scrollToSection('team')">Team</a>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Landing Section -->
+    <section id="home" class="landing">
+        <div class="container">
+            <div class="landing-content">
+                <div class="hero-text">
+                    <h1>Real-time Turkish Speech Filter</h1>
+                    <p class="subtitle">
+                        Experience the future of content moderation with our AI-powered, privacy-first profanity detection system. Clean speech, instant results, complete privacy.
+                    </p>
+                    <button class="cta-button" onclick="scrollToSection('demo')">Watch Demo</button>
+                    <button class="cta-button" onclick="scrollToSection('how-it-works')" style="background: transparent; border: 2px solid #ff4444;">Learn More</button>
+                </div>
+                <div class="hero-visual">
+                    <div class="censorship-demo">
+                        <div class="demo-text">
+                            "Bu proje gerçekten <span class="censored">****</span> güzel!"<br>
+                            "What a <span class="censored">****</span>ing amazing project!"<br>
+                            <small style="color: #ff4444;">🔊 Real-time beep overlay + text masking</small>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- About Section -->
+    <section id="about" class="section">
+        <div class="container">
+            <h2>What is ProfanityCheck?</h2>
+            <div style="text-align: center; max-width: 800px; margin: 0 auto;">
+                <p style="font-size: 1.2rem; line-height: 1.8; color: #cccccc;">
+                    ProfanityCheck is a cutting-edge, real-time profanity detection and censorship system designed specifically for Turkish speech. 
+                    Using advanced AI models, it listens to live audio, transcribes speech with OpenAI Whisper, identifies offensive content with a fine-tuned DistilBERT classifier, 
+                    and instantly replaces profanities with adaptive beeps while masking them in text transcriptions.
+                </p>
+                <br>
+                <p style="font-size: 1.1rem; color: #ff4444;">
+                    <strong>Perfect for classrooms, live streams, meetings, and public spaces in Turkey - maintaining professionalism while preserving privacy.</strong>
+                </p>
+            </div>
+        </div>
+    </section>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <div class="container">
+            <h2>Key Features</h2>
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">🎤</div>
+                    <h3>Real-time Processing</h3>
+                    <p>Sub-second latency with instant audio cleanup and text masking for seamless user experience.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔒</div>
+                    <h3>100% Local & Private</h3>
+                    <p>All processing happens on-device. No data leaves your computer, ensuring complete privacy and security.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🎯</div>
+                    <h3>Word-Level Precision</h3>
+                    <p>Whisper's timestamps enable perfect alignment between spoken words and censor beeps.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🧠</div>
+                    <h3>AI-Powered Detection</h3>
+                    <p>Fine-tuned DistilBERT classifier with 96.91% accuracy on Turkish toxic language detection.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">⚡</div>
+                    <h3>GPU Accelerated</h3>
+                    <p>Optimized for laptop-class GPUs with CUDA support for maximum performance.</p>
+                </div>
+                <div class="feature-card">
+                    <div class="feature-icon">🔧</div>
+                    <h3>Modular Architecture</h3>
+                    <p>Easily extensible codebase allowing for additional language support and custom integrations.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- How It Works Section -->
+    <section id="how-it-works" class="section">
+        <div class="container">
+            <h2>How It Works</h2>
+            <div class="flowchart">
+                <div class="flow-step">
+                    <div class="flow-circle">1</div>
+                    <h4>Mic Input</h4>
+                    <p>48kHz audio capture from microphone</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-circle">2</div>
+                    <h4>Whisper ASR</h4>
+                    <p>Speech-to-text with word-level timestamps</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-circle">3</div>
+                    <h4>DistilBERT</h4>
+                    <p>Toxicity classification for each word</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-circle">4</div>
+                    <h4>Threshold Check</h4>
+                    <p>Score > 0.90 triggers censorship</p>
+                </div>
+                <div class="flow-step">
+                    <div class="flow-circle">5</div>
+                    <h4>Clean Output</h4>
+                    <p>Beep overlay + text masking in real-time</p>
+                </div>
+            </div>
+            
+            <div style="text-align: center; margin-top: 50px;">
+                <h3 style="color: #ff4444; margin-bottom: 20px;">Performance Metrics</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; max-width: 600px; margin: 0 auto;">
+                    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                        <div style="font-size: 2rem; color: #ff4444; font-weight: bold;">96.91%</div>
+                        <div>Accuracy</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                        <div style="font-size: 2rem; color: #ff4444; font-weight: bold;">96.93%</div>
+                        <div>Precision</div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.05); padding: 20px; border-radius: 10px;">
+                        <div style="font-size: 2rem; color: #ff4444; font-weight: bold;">< 0.4s</div>
+                        <div>Latency</div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Technology Stack Section -->
+    <section id="tech" class="section">
+        <div class="container">
+            <h2>Technology Stack</h2>
+            <div class="tech-stack">
+                <div class="tech-item">
+                    <h4>🤖 AI Models</h4>
+                    <p>DistilBERT-Turkish-Offensive</p>
+                    <p>OpenAI Whisper Large</p>
+                </div>
+                <div class="tech-item">
+                    <h4>🐍 Core Language</h4>
+                    <p>Python 3.11</p>
+                </div>
+                <div class="tech-item">
+                    <h4>🔥 Deep Learning</h4>
+                    <p>PyTorch 2.3</p>
+                    <p>Transformers Library</p>
+                </div>
+                <div class="tech-item">
+                    <h4>🎵 Audio Processing</h4>
+                    <p>PyDub + FFmpeg</p>
+                    <p>NumPy / SciPy</p>
+                </div>
+                <div class="tech-item">
+                    <h4>💾 Dataset</h4>
+                    <p>Turkish-Toxic-Language Corpus</p>
+                    <p>77,800+ labeled samples</p>
+                </div>
+                <div class="tech-item">
+                    <h4>🖥️ Interface</h4>
+                    <p>PyQt6 GUI</p>
+                    <p>Real-time visualization</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Demo Section -->
+    <section id="demo" class="section">
+        <div class="container">
+            <h2>Try ProfanityCheck</h2>
+            <div class="demo-container">
+                <div class="demo-card">
+                    <div class="demo-icon">🎬</div>
+                    <h3>Interactive Demo</h3>
+                    <p style="margin-bottom: 20px; color: #cccccc;">
+                        Upload your video and experience our AI-powered profanity filtering system in action. 
+                        Get your cleaned video with censored audio and masked text transcription.
+                    </p>
+                    <a href="https://profanity-check.streamlit.app/" class="demo-button" target="_blank">
+                        🚀 Try Live Demo
+                    </a>
+                    <div style="margin-top: 15px; font-size: 0.9rem; color: #999;">
+                        Upload → Process → Download cleaned video
+                    </div>
+                </div>
+                
+                <div class="demo-card">
+                    <div class="demo-icon">📺</div>
+                    <h3>Project Explanation</h3>
+                    <p style="margin-bottom: 20px; color: #cccccc;">
+                        Watch our comprehensive project walkthrough. Learn about the AI models, 
+                        technical implementation, and see real-time filtering demonstrations.
+                    </p>
+                    <a href="https://youtu.be/0SnLO2cKcBY" class="youtube-button" target="_blank">
+                        ▶️ Watch on YouTube
+                    </a>
+                    <div style="margin-top: 15px; font-size: 0.9rem; color: #999;">
+                        Technical deep-dive + live demonstrations
+                    </div>
+                </div>
+            </div>
+
+            <div style="text-align: center; margin-top: 50px; padding: 30px; background: rgba(255,255,255,0.05); border-radius: 15px; border: 1px solid rgba(255,68,68,0.2);">
+                <h3 style="color: #ff4444; margin-bottom: 15px;">🎯 Demo Features</h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-top: 20px;">
+                    <div>
+                        <strong style="color: #ff4444;">📤 Video Upload</strong><br>
+                        <span style="color: #ccc;">Support for MP4, AVI, MOV formats</span>
+                    </div>
+                    <div>
+                        <strong style="color: #ff4444;">🔊 Audio Processing</strong><br>
+                        <span style="color: #ccc;">Real-time beep censorship</span>
+                    </div>
+                    <div>
+                        <strong style="color: #ff4444;">📝 Text Masking</strong><br>
+                        <span style="color: #ccc;">Automatic transcript cleanup</span>
+                    </div>
+                    <div>
+                        <strong style="color: #ff4444;">⬇️ Download Results</strong><br>
+                        <span style="color: #ccc;">Get your censored video file</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Team Section -->
+    <section id="team" class="section">
+        <div class="container">
+            <h2>Our Team</h2>
+            <div class="team-section">
+                <div class="team-card">
+                    <h3 style="color: #ff4444; margin-bottom: 20px;">Graduation Project Team</h3>
+                    <p style="font-size: 1.1rem; margin-bottom: 15px;">
+                        <strong> Sara Rzayeva & Irem Saygı </strong><br>
+                        
+                        Computer Engineering
+                    </p>
+                    <p style="margin-bottom: 20px;">
+                        <strong>Supervisor:</strong> Doç. Dr. ALİ SEYDİ KEÇELİ <br>
+                        HACETTEPE University
+                    </p>
+                    <div class="contact-links">
+                        <a href='https://github.com/iroshima01/profanity-check'target ="_blank">🔗 GitHub</a>
+                        
+                
+                        <a href="poster.pdf" target="_blank">📄 Poster</a>
+
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+
+
+
+
+
+
+
+    <script>
+        function scrollToSection(sectionId) {
+            const element = document.getElementById(sectionId);
+            if (element) {
+                const navHeight = 80; // Account for fixed navigation
+                const elementPosition = element.offsetTop - navHeight;
+                
+                window.scrollTo({
+                    top: elementPosition,
+                    behavior: 'smooth'
+                });
+            }
+        }
+
+        // Remove the parallax effect that was causing issues
+        // The transform on body was interfering with scroll positioning
+    </script>
+</body>
+</html>
